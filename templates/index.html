@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sentinel DLP | Data Loss Prevention & OCR Scanner</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <!-- Top Navigation -->
+    <header class="top-nav">
+        <div class="nav-container">
+            <div class="brand">
+                <div class="brand-logo">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                        <circle cx="12" cy="11" r="3"/>
+                        <path d="M12 14v4"/>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="brand-title">SENTINEL<span>DLP</span></h1>
+                    <p class="brand-sub">Optical OCR & Algorithmic Leak Detection System</p>
+                </div>
+            </div>
+            <div class="system-status">
+                <div class="status-pill status-active" title="Tesseract Optical Character Recognition">
+                    <span class="status-dot"></span>
+                    <span class="status-text">OCR Engine: Active</span>
+                </div>
+                <div class="status-pill status-algo" title="Verhoeff & Luhn Mod-10 Checksum Verifiers">
+                    <span class="status-dot-algo"></span>
+                    <span class="status-text">Algorithmic Defense: Verhoeff & Luhn</span>
+                </div>
+                <a href="https://github.com/AcerolaOrion420/ocr-DLP-scanner" target="_blank" class="github-link" title="GitHub Repository">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/>
+                    </svg>
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <main class="main-container">
+        <!-- Ingestion Section -->
+        <section class="card input-card">
+            <div class="card-header">
+                <div>
+                    <h2 class="card-title">Document & Data Ingestion</h2>
+                    <p class="card-desc">Scan plain text, documents (.docx, .pdf), or images (.png, .jpg) for PII and financial credentials.</p>
+                </div>
+                <div class="input-tabs">
+                    <button class="tab-btn active" data-tab="upload-tab">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                            <polyline points="17 8 12 3 7 8"/>
+                            <line x1="12" y1="3" x2="12" y2="15"/>
+                        </svg>
+                        Upload File / Image
+                    </button>
+                    <button class="tab-btn" data-tab="text-tab">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="4 7 4 4 20 4 20 7"/>
+                            <line x1="9" y1="20" x2="15" y2="20"/>
+                            <line x1="12" y1="4" x2="12" y2="20"/>
+                        </svg>
+                        Paste Raw Text
+                    </button>
+                    <button class="tab-btn" data-tab="presets-tab">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                        </svg>
+                        Quick Test Presets
+                    </button>
+                </div>
+            </div>
+
+            <!-- Tab 1: File Upload -->
+            <div class="tab-content active" id="upload-tab">
+                <div class="dropzone" id="dropzone">
+                    <input type="file" id="fileInput" class="file-input" accept=".txt,.csv,.log,.json,.xml,.docx,.pdf,.png,.jpg,.jpeg,.bmp,.tiff,.webp">
+                    <div class="dropzone-inner">
+                        <div class="dropzone-icon">
+                            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                                <circle cx="8.5" cy="8.5" r="1.5"/>
+                                <polyline points="21 15 16 10 5 21"/>
+                            </svg>
+                        </div>
+                        <h3 class="dropzone-title">Drag and drop file here, or <span class="browse-link">browse</span></h3>
+                        <p class="dropzone-subtitle">Supported: <strong>PDF</strong> (Native + Scanned OCR), <strong>DOCX</strong>, <strong>Images</strong> (PNG, JPG, TIFF), <strong>TXT</strong>, CSV, Logs</p>
+                        <div class="selected-file-pill" id="selectedFilePill" style="display: none;">
+                            <span class="file-icon">📄</span>
+                            <span class="file-name" id="selectedFileName">filename.ext</span>
+                            <span class="file-size" id="selectedFileSize">0 KB</span>
+                            <button type="button" class="remove-file-btn" id="removeFileBtn" title="Remove">&times;</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="scan-options">
+                    <label class="checkbox-label" title="Forces Tesseract OCR on all PDF pages even if text layer exists">
+                        <input type="checkbox" id="forceOcrCheckbox">
+                        <span class="checkbox-custom"></span>
+                        <span>Force Optical OCR pass (Deep raster scan)</span>
+                    </label>
+                    <button class="btn btn-primary" id="scanFileBtn" disabled>
+                        <span class="btn-spinner" id="fileBtnSpinner" style="display: none;"></span>
+                        <svg class="btn-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="11" cy="11" r="8"/>
+                            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                        </svg>
+                        Scan Document for Leaks
+                    </button>
+                </div>
+            </div>
+
+            <!-- Tab 2: Raw Text -->
+            <div class="tab-content" id="text-tab">
+                <div class="textarea-wrapper">
+                    <textarea id="rawTextInput" placeholder="Paste sensitive logs, source code, chat transcripts, customer records, or payload text here to test DLP defenses..."></textarea>
+                    <div class="textarea-footer">
+                        <span id="charCount">0 characters</span>
+                        <button type="button" class="btn-ghost" id="clearTextBtn">Clear</button>
+                    </div>
+                </div>
+                <div class="scan-options">
+                    <div></div>
+                    <button class="btn btn-primary" id="scanTextBtn">
+                        <span class="btn-spinner" id="textBtnSpinner" style="display: none;"></span>
+                        <svg class="btn-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="11" cy="11" r="8"/>
+                            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                        </svg>
+                        Scan Text for Leaks
+                    </button>
+                </div>
+            </div>
+
+            <!-- Tab 3: Presets -->
+            <div class="tab-content" id="presets-tab">
+                <div class="preset-grid">
+                    <div class="preset-card" data-preset="leak_full">
+                        <div class="preset-badge badge-critical">Critical Risk</div>
+                        <h4>🚨 Full PII & Financial Breach Case</h4>
+                        <p>Valid Aadhaar (Verhoeff), Visa & RuPay Cards (Luhn), PAN Card, Driving License, Passport, Voter ID & Contact data.</p>
+                        <button class="btn btn-outline">Load & Test</button>
+                    </div>
+                    <div class="preset-card" data-preset="financial">
+                        <div class="preset-badge badge-critical">Critical Risk</div>
+                        <h4>💳 Customer Banking Records Leak</h4>
+                        <p>Mastercard (Luhn), Corporate PAN, Aadhaar (Verhoeff), and Bank Branch IFSC codes.</p>
+                        <button class="btn btn-outline">Load & Test</button>
+                    </div>
+                    <div class="preset-card" data-preset="clean">
+                        <div class="preset-badge badge-safe">Zero Leak</div>
+                        <h4>✅ Sanitized Infrastructure Telemetry</h4>
+                        <p>Standard server metrics and operational logs containing zero sensitive credentials.</p>
+                        <button class="btn btn-outline">Load & Test</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Scanning Loader (Radar Animation) -->
+        <div class="scanning-loader" id="scanningLoader" style="display: none;">
+            <div class="radar-circle">
+                <div class="radar-sweep"></div>
+                <div class="radar-ping"></div>
+            </div>
+            <h3 class="loader-title">Analyzing Document Streams...</h3>
+            <p class="loader-subtitle" id="loaderStatusMsg">Performing OCR image enhancement & Verhoeff / Luhn algorithmic verification</p>
+        </div>
+
+        <!-- Results Dashboard Section -->
+        <section class="results-section" id="resultsSection" style="display: none;">
+            <!-- Alert Banner -->
+            <div class="alert-banner" id="riskBanner">
+                <div class="alert-icon" id="riskBannerIcon">⚠️</div>
+                <div class="alert-content">
+                    <div class="alert-header">
+                        <h3 class="alert-title" id="riskBannerTitle">CRITICAL DATA LEAK DETECTED</h3>
+                        <span class="risk-score-badge" id="riskScoreBadge">Risk Score: 100/100</span>
+                    </div>
+                    <p class="alert-message" id="riskBannerMsg">Sensitive national identifiers or payment card credentials have been uncovered in this document stream.</p>
+                </div>
+            </div>
+
+            <!-- Metric Cards -->
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <div class="metric-header">
+                        <span class="metric-label">Total Violations</span>
+                        <span class="metric-icon">🔍</span>
+                    </div>
+                    <div class="metric-val" id="totalViolationsCount">0</div>
+                    <div class="metric-footer" id="metricViolationsFooter">Sensitive tokens detected</div>
+                </div>
+
+                <div class="metric-card">
+                    <div class="metric-header">
+                        <span class="metric-label">Algorithmic Validated</span>
+                        <span class="metric-icon">🧮</span>
+                    </div>
+                    <div class="metric-val text-algo" id="algoValidatedCount">0</div>
+                    <div class="metric-footer">Verhoeff & Luhn verified</div>
+                </div>
+
+                <div class="metric-card">
+                    <div class="metric-header">
+                        <span class="metric-label">Critical / High Severity</span>
+                        <span class="metric-icon">🚨</span>
+                    </div>
+                    <div class="metric-val text-critical" id="criticalHighCount">0</div>
+                    <div class="metric-footer" id="severityFooter">Financial & National IDs</div>
+                </div>
+
+                <div class="metric-card">
+                    <div class="metric-header">
+                        <span class="metric-label">Ingestion Mode</span>
+                        <span class="metric-icon">⚙️</span>
+                    </div>
+                    <div class="metric-val text-mode" id="ingestionModeText">Native Text</div>
+                    <div class="metric-footer" id="ingestionMetaFooter">0 chars parsed</div>
+                </div>
+            </div>
+
+            <!-- Findings Table Card -->
+            <div class="card findings-card">
+                <div class="card-header">
+                    <div>
+                        <h2 class="card-title">Threat Audit Log & Findings</h2>
+                        <p class="card-desc">Detailed inventory of detected data leaks, verification method, and surrounding context.</p>
+                    </div>
+                    <div class="findings-filter">
+                        <button class="filter-pill active" data-filter="all">All (<span id="filterAllCount">0</span>)</button>
+                        <button class="filter-pill" data-filter="algo">Algorithmic Only (<span id="filterAlgoCount">0</span>)</button>
+                        <button class="filter-pill" data-filter="CRITICAL">Critical (<span id="filterCritCount">0</span>)</button>
+                        <button class="filter-pill" data-filter="HIGH">High (<span id="filterHighCount">0</span>)</button>
+                    </div>
+                </div>
+
+                <div class="table-container">
+                    <table class="findings-table" id="findingsTable">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Identity / Entity Type</th>
+                                <th>Severity</th>
+                                <th>Verification Engine</th>
+                                <th>Masked Secret</th>
+                                <th>Context Snippet</th>
+                            </tr>
+                        </thead>
+                        <tbody id="findingsTableBody">
+                            <!-- Populated dynamically via JS -->
+                        </tbody>
+                    </table>
+                    <div class="empty-findings" id="emptyFindingsMessage" style="display: none;">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                            <polyline points="22 4 12 14.01 9 11.01"/>
+                        </svg>
+                        <h4>No Data Leaks Detected</h4>
+                        <p>No PII, national identification numbers, or payment credentials found in this content.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Document Inspection Card -->
+            <div class="card document-viewer-card">
+                <div class="card-header">
+                    <div>
+                        <h2 class="card-title">Document Inspection & DLP Redaction</h2>
+                        <p class="card-desc">View detected leaks highlighted in real-time or examine the sanitized version ready for export.</p>
+                    </div>
+                    <div class="viewer-tabs">
+                        <button class="viewer-tab-btn active" data-view="highlighted">
+                            <span class="viewer-dot dot-highlight"></span>
+                            Threat Highlighted View
+                        </button>
+                        <button class="viewer-tab-btn" data-view="redacted">
+                            <span class="viewer-dot dot-redact"></span>
+                            Sanitized / Scrubbed View
+                        </button>
+                        <button class="viewer-tab-btn" data-view="raw">
+                            <span class="viewer-dot dot-raw"></span>
+                            Raw Extracted Text
+                        </button>
+                    </div>
+                </div>
+
+                <div class="viewer-container">
+                    <!-- Highlighted View -->
+                    <div class="viewer-pane active" id="paneHighlighted">
+                        <div class="document-content-box" id="highlightedHtmlContent"></div>
+                    </div>
+                    <!-- Redacted View -->
+                    <div class="viewer-pane" id="paneRedacted">
+                        <pre class="document-pre-box" id="redactedTextContent"></pre>
+                    </div>
+                    <!-- Raw View -->
+                    <div class="viewer-pane" id="paneRaw">
+                        <pre class="document-pre-box" id="rawTextContent"></pre>
+                    </div>
+                </div>
+
+                <!-- Export & Remediation Actions -->
+                <div class="remediation-bar">
+                    <div class="remediation-info">
+                        <span class="shield-badge">🛡️ DLP Remediation Ready</span>
+                        <span>Export scrubbed documents or save audit trails to satisfy regulatory compliance.</span>
+                    </div>
+                    <div class="remediation-actions">
+                        <button class="btn btn-outline" id="copyRedactedBtn">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                            </svg>
+                            Copy Sanitized Text
+                        </button>
+                        <button class="btn btn-outline" id="downloadRedactedBtn">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                <polyline points="7 10 12 15 17 10"/>
+                                <line x1="12" y1="15" x2="12" y2="3"/>
+                            </svg>
+                            Download Sanitized (.txt)
+                        </button>
+                        <button class="btn btn-primary" id="downloadReportBtn">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                <polyline points="14 2 14 8 20 8"/>
+                                <line x1="16" y1="13" x2="8" y2="13"/>
+                                <line x1="16" y1="17" x2="8" y2="17"/>
+                                <polyline points="10 9 9 9 8 9"/>
+                            </svg>
+                            Download Audit Report (.json)
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+        <p>Sentinel Data Loss Prevention (DLP) &bull; Optical Character Recognition + Algorithmic Verification Engine</p>
+        <p class="footer-links">
+            <span>Aadhaar: Verhoeff Checksum</span> &bull; 
+            <span>Cards: Luhn Mod-10</span> &bull; 
+            <span>PAN: CBDT Format</span> &bull; 
+            <span>DL: MoRTH Sarathi</span>
+        </p>
+    </footer>
+
+    <!-- Notification Toast -->
+    <div class="toast" id="toast"></div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

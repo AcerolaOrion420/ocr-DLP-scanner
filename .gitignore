@@ -1,0 +1,22 @@
+# Environments
+venv/
+env/
+.venv/
+ENV/
+
+# Python cache & artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Logs & temp uploads
+*.log
+uploads/
+temp/
+.DS_Store
+.idea/
+.vscode/
