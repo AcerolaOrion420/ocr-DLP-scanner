@@ -74,6 +74,10 @@ PAN_STATUS_CODES = {
     "G": "Government Agency",
 }
 
+# OCR character confusion maps
+OCR_DIGIT_MAP = str.maketrans("OoIil|", "001111")
+OCR_LETTER_MAP = str.maketrans("0158", "OISB")
+
 
 @dataclass
 class RawFinding:
@@ -108,6 +112,7 @@ class AadhaarVerifier(BaseVerifier):
     Format: 12 digits, cannot start with 0 or 1.
     Separators: space, hyphen, or none.
     Validation: Verhoeff algorithm.
+    OCR-tolerant: resolves O/o -> 0, I/l -> 1 before Verhoeff checksum.
     """
     name = "Aadhaar Card"
     category = "National ID"
@@ -116,17 +121,18 @@ class AadhaarVerifier(BaseVerifier):
 
     # Matches 12-digit numbers formatted as 4-4-4 or 12 consecutive digits
     PATTERN = re.compile(
-        r"(?<!\d)([2-9]\d{3})[\s-]?(\d{4})[\s-]?(\d{4})(?!\d)"
+        r"(?<![A-Za-z0-9])([2-9][0-9OolI]{3})[\s-]?([0-9OolI]{4})[\s-]?([0-9OolI]{4})(?![A-Za-z0-9])"
     )
 
     def find_all(self, text: str) -> List[RawFinding]:
         findings = []
         for match in self.PATTERN.finditer(text):
             raw = match.group(0)
-            digits = "".join(ch for ch in raw if ch.isdigit())
-            
+            raw_clean = "".join(ch for ch in raw if ch.isalnum())
+            digits = raw_clean.translate(OCR_DIGIT_MAP)
+
             # Must be exactly 12 digits
-            if len(digits) != 12:
+            if len(digits) != 12 or not digits.isdigit():
                 continue
 
             # Cannot be all repeating identical digits (e.g. 2222 2222 2222)
@@ -135,6 +141,11 @@ class AadhaarVerifier(BaseVerifier):
 
             # Algorithmic Verhoeff verification
             if verhoeff_validate(digits):
+                ocr_corrected = any(c in "OoIil|" for c in raw_clean)
+                method = "Algorithmic (Verhoeff Checksum Validated)"
+                if ocr_corrected:
+                    method += " [OCR Normalized]"
+
                 findings.append(
                     RawFinding(
                         verifier_name=self.name,
@@ -144,20 +155,21 @@ class AadhaarVerifier(BaseVerifier):
                         raw_value=raw,
                         start=match.start(),
                         end=match.end(),
-                        masked_value=self.mask(raw),
-                        validation_method="Algorithmic (Verhoeff Checksum Validated)",
+                        masked_value=self.mask(raw, digits),
+                        validation_method=method,
                         details={
                             "formatted": f"{digits[:4]} {digits[4:8]} {digits[8:]}",
                             "algorithm": "Verhoeff Checksum",
                             "status": "Verified Genuine Aadhaar Format",
+                            "ocr_corrected": ocr_corrected,
                         },
                     )
                 )
         return findings
 
-    def mask(self, raw: str) -> str:
-        digits = "".join(ch for ch in raw if ch.isdigit())
-        if len(digits) == 12:
+    def mask(self, raw: str, normalized_digits: Optional[str] = None) -> str:
+        digits = normalized_digits or "".join(ch for ch in raw if ch.isdigit())
+        if len(digits) >= 12:
             return f"XXXX-XXXX-{digits[-4:]}"
         return "XXXX-XXXX-" + raw[-4:] if len(raw) >= 4 else "XXXX"
 
@@ -168,6 +180,7 @@ class CreditCardVerifier(BaseVerifier):
     Format: 13 to 19 digits.
     Separators: spaces, hyphens, or none.
     Validation: Luhn (Mod 10) algorithm + IIN/BIN network recognition.
+    OCR-tolerant: resolves O/o -> 0, I/l -> 1 before Luhn checksum.
     """
     name = "Credit / Debit Card"
     category = "Financial"
@@ -175,24 +188,29 @@ class CreditCardVerifier(BaseVerifier):
     is_algorithmic = True
 
     # Matches 13-19 digit card numbers with optional space or hyphen groupings
-    # E.g. 4 groups of 4 (16), 4-6-5 (15 Amex), 3-4-4-3, or 13-19 continuous digits
     PATTERN = re.compile(
-        r"(?<!\d)(?:(?:\d{4}[ -]?){3}\d{4}|\d{4}[ -]?\d{6}[ -]?\d{5}|\d{13,19})(?!\d)"
+        r"(?<![A-Za-z0-9])(?:(?:[0-9OolI]{4}[ -]?){3}[0-9OolI]{4}|[0-9OolI]{4}[ -]?[0-9OolI]{6}[ -]?[0-9OolI]{5}|[0-9OolI]{13,19})(?![A-Za-z0-9])"
     )
 
     def find_all(self, text: str) -> List[RawFinding]:
         findings = []
         for match in self.PATTERN.finditer(text):
             raw = match.group(0)
-            digits = "".join(ch for ch in raw if ch.isdigit())
+            raw_clean = "".join(ch for ch in raw if ch.isalnum())
+            digits = raw_clean.translate(OCR_DIGIT_MAP)
 
             # Avoid capturing 12-digit numbers here
-            if len(digits) < 13 or len(digits) > 19:
+            if len(digits) < 13 or len(digits) > 19 or not digits.isdigit():
                 continue
 
             # Algorithmic Luhn verification
             if luhn_validate(digits):
                 issuer = identify_card_issuer(digits)
+                ocr_corrected = any(c in "OoIil|" for c in raw_clean)
+                method = f"Algorithmic (Luhn Mod-10 Validated - {issuer})"
+                if ocr_corrected:
+                    method += " [OCR Normalized]"
+
                 findings.append(
                     RawFinding(
                         verifier_name=f"{issuer} Card" if issuer != "Credit / Debit Card" else self.name,
@@ -202,20 +220,21 @@ class CreditCardVerifier(BaseVerifier):
                         raw_value=raw,
                         start=match.start(),
                         end=match.end(),
-                        masked_value=self.mask(raw),
-                        validation_method=f"Algorithmic (Luhn Mod-10 Validated - {issuer})",
+                        masked_value=self.mask(raw, digits),
+                        validation_method=method,
                         details={
                             "issuer": issuer,
                             "card_length": len(digits),
                             "last_four": digits[-4:],
                             "algorithm": "Luhn Checksum (Mod 10)",
+                            "ocr_corrected": ocr_corrected,
                         },
                     )
                 )
         return findings
 
-    def mask(self, raw: str) -> str:
-        digits = "".join(ch for ch in raw if ch.isdigit())
+    def mask(self, raw: str, normalized_digits: Optional[str] = None) -> str:
+        digits = normalized_digits or "".join(ch for ch in raw if ch.isdigit())
         if len(digits) >= 12:
             return f"{digits[:4]}-XXXX-XXXX-{digits[-4:]}"
         return "****-****-" + digits[-4:] if len(digits) >= 4 else "****"
@@ -226,6 +245,7 @@ class PANVerifier(BaseVerifier):
     Permanent Account Number (PAN) Card Verifier:
     Format: 5 letters, 4 digits, 1 letter (e.g., ABCDE1234F).
     Validation: Regex + 4th character structure check (Individual, Company, Trust, etc.).
+    OCR-tolerant: resolves O/o -> 0 in digits, 0 -> O in letters.
     """
     name = "PAN Card"
     category = "Tax ID"
@@ -233,79 +253,35 @@ class PANVerifier(BaseVerifier):
     is_algorithmic = False
 
     PATTERN = re.compile(
-        r"(?<![A-Za-z0-9])([A-Za-z]{3})([A-Za-z])([A-Za-z])([0-9]{4})([A-Za-z])(?![A-Za-z0-9])"
-    )
-
-    def find_all(self, text: str) -> List[RawFinding]:
-        findings = []
-        for match in self.PATTERN.finditer(text):
-            raw = match.group(0).upper()
-            status_char = raw[3]
-            holder_type = PAN_STATUS_CODES.get(status_char, "Other Entity")
-            
-            # Numeric sequence 0000 is invalid in PAN
-            num_part = raw[5:9]
-            if num_part == "0000":
-                continue
-
-            findings.append(
-                RawFinding(
-                    verifier_name=self.name,
-                    category=self.category,
-                    severity=self.severity,
-                    is_algorithmic=False,
-                    raw_value=match.group(0),
-                    start=match.start(),
-                    end=match.end(),
-                    masked_value=self.mask(raw),
-                    validation_method=f"Regex + Structural Validation (Status: {holder_type})",
-                    details={
-                        "pan_uppercase": raw,
-                        "status_code": status_char,
-                        "entity_type": holder_type,
-                        "surname_initial": raw[4],
-                    },
-                )
-            )
-        return findings
-
-    def mask(self, raw: str) -> str:
-        pan = raw.strip().upper()
-        if len(pan) == 10:
-            return f"{pan[:2]}*****{pan[-2:]}"
-        return "PAN-******"
-
-
-class DrivingLicenseVerifier(BaseVerifier):
-    """
-    Indian Driving License (DL) Verifier:
-    Format:
-    - Standard Sarathi: SS-RR-YYYYNNNNNNN (e.g. MH-01-20150001234 or DL-0420110012345)
-    - Legacy state formats: SS/RR/YYYY/NNNNNNN or SS-RR-YYYY-NNNNNNN
-    Validation: Regex + Indian State Code lookup.
-    """
-    name = "Driving License"
-    category = "Identity & Transport"
-    severity = "HIGH"
-    is_algorithmic = False
-
-    # Standard 15-16 character Sarathi or legacy DL pattern
-    PATTERN = re.compile(
-        r"(?<![A-Za-z0-9])([A-Za-z]{2})[-/\s]?([0-9]{2})[-/\s]?((?:19|20)[0-9]{2})[-/\s]?([0-9]{7})(?![0-9])|"
-        r"(?<![A-Za-z0-9])([A-Za-z]{2})[-/\s]?([0-9]{13})(?![0-9])"
+        r"(?<![A-Za-z0-9])([A-Za-z0-9]{3})([A-Za-z0-9])([A-Za-z0-9])([0-9OolI]{4})([A-Za-z0-9])(?![A-Za-z0-9])"
     )
 
     def find_all(self, text: str) -> List[RawFinding]:
         findings = []
         for match in self.PATTERN.finditer(text):
             raw = match.group(0)
-            state_code = raw[:2].upper()
+            first5 = (match.group(1) + match.group(2) + match.group(3)).upper().translate(OCR_LETTER_MAP)
+            digits = match.group(4).translate(OCR_DIGIT_MAP)
+            last = match.group(5).upper().translate(OCR_LETTER_MAP)
 
-            # Must be a recognized Indian State or UT code
-            if state_code not in INDIAN_STATE_CODES:
+            if not first5.isalpha() or not last.isalpha():
                 continue
 
-            state_name = INDIAN_STATE_CODES[state_code]
+            status_char = first5[3]
+            if status_char not in PAN_STATUS_CODES:
+                continue
+
+            if not digits.isdigit() or digits == "0000":
+                continue
+
+            holder_type = PAN_STATUS_CODES.get(status_char, "Other Entity")
+            normalized_pan = first5 + digits + last
+            ocr_corrected = (raw.upper() != normalized_pan)
+
+            method = f"Regex + Structural Validation (Status: {holder_type})"
+            if ocr_corrected:
+                method += " [OCR Normalized]"
+
             findings.append(
                 RawFinding(
                     verifier_name=self.name,
@@ -315,20 +291,154 @@ class DrivingLicenseVerifier(BaseVerifier):
                     raw_value=raw,
                     start=match.start(),
                     end=match.end(),
-                    masked_value=self.mask(raw),
-                    validation_method=f"Regex + State Code Validation ({state_name})",
+                    masked_value=self.mask(raw, normalized_pan),
+                    validation_method=method,
                     details={
-                        "state_code": state_code,
-                        "state_name": state_name,
+                        "pan_uppercase": normalized_pan,
+                        "status_code": status_char,
+                        "entity_type": holder_type,
+                        "surname_initial": first5[4],
+                        "ocr_corrected": ocr_corrected,
                     },
                 )
             )
         return findings
 
-    def mask(self, raw: str) -> str:
-        clean = raw.strip()
+    def mask(self, raw: str, normalized: Optional[str] = None) -> str:
+        pan = (normalized or raw).strip().upper()
+        if len(pan) == 10:
+            return f"{pan[:2]}*****{pan[-2:]}"
+        return "PAN-******"
+
+
+class DrivingLicenseVerifier(BaseVerifier):
+    """
+    Indian Driving License (DL) Verifier:
+    Format:
+    - Standard Sarathi: SS-RR-YYYYNNNNNNN (e.g. MH-01-20150001234, DL-0420110012345, KAO4 20220017889)
+    - Separators: spaces, hyphens, slashes, or contiguous
+    - OCR-resilient: handles common OCR digit confusions (O/o -> 0, I/l/| -> 1)
+    - Legacy state formats: SS/RR/YYYY/NNNNNNN, SS-RR-YYYY-NNNNNNN, SSRR YYYY NNNNNNN
+    Validation: Regex + Indian State Code lookup + Structure/Year validation.
+    """
+    name = "Driving License"
+    category = "Identity & Transport"
+    severity = "HIGH"
+    is_algorithmic = False
+
+    # Matches state code + RTO + optional series + year + unique number OR contiguous sequence
+    PATTERN = re.compile(
+        r"(?<![A-Za-z0-9])([A-Za-z]{2})[-/\s]?([0-9OolI]{1,3})[-/\s]?(?:[A-Za-z][-/\s]?)?((?:19|2[0Oo])[0-9OolI]{2})[-/\s]?([0-9OolI]{4,8})(?![A-Za-z0-9])|"
+        r"(?<![A-Za-z0-9])([A-Za-z]{2})[-/\s]?([0-9OolI]{11,16})(?![A-Za-z0-9])"
+    )
+
+    def find_all(self, text: str) -> List[RawFinding]:
+        findings = []
+        for match in self.PATTERN.finditer(text):
+            raw = match.group(0).strip()
+            state_code = raw[:2].upper()
+
+            # Must be a recognized Indian State or UT code
+            if state_code not in INDIAN_STATE_CODES:
+                continue
+
+            state_name = INDIAN_STATE_CODES[state_code]
+
+            # Extract structured components
+            normalized_dl = None
+            rto_code = None
+            year_val = None
+            num_val = None
+            ocr_corrected = False
+
+            if match.group(1):
+                # Structured pattern matched
+                rto_raw = match.group(2)
+                year_raw = match.group(3)
+                num_raw = match.group(4)
+
+                rto_norm = rto_raw.translate(OCR_DIGIT_MAP)
+                year_norm = year_raw.translate(OCR_DIGIT_MAP)
+                num_norm = num_raw.translate(OCR_DIGIT_MAP)
+
+                if any(c in "OoIil|" for c in rto_raw + year_raw + num_raw):
+                    ocr_corrected = True
+
+                if rto_norm.isdigit() and year_norm.isdigit() and num_norm.isdigit():
+                    y = int(year_norm)
+                    if 1950 <= y <= 2035:
+                        rto_code = rto_norm.zfill(2)
+                        year_val = y
+                        num_val = num_norm
+                        normalized_dl = f"{state_code}-{rto_code}-{year_val}-{num_val}"
+
+            elif match.group(5):
+                # Contiguous pattern matched
+                digits_raw = match.group(6)
+                digits_norm = digits_raw.translate(OCR_DIGIT_MAP)
+
+                if any(c in "OoIil|" for c in digits_raw):
+                    ocr_corrected = True
+
+                if digits_norm.isdigit():
+                    if len(digits_norm) == 13:
+                        # Standard Sarathi contiguous: 2 RTO + 4 Year + 7 Num
+                        rto_code = digits_norm[:2]
+                        y = int(digits_norm[2:6])
+                        num_val = digits_norm[6:]
+                        if 1950 <= y <= 2035:
+                            year_val = y
+                            normalized_dl = f"{state_code}-{rto_code}-{year_val}-{num_val}"
+                    else:
+                        # Attempt to locate 4-digit year within the sequence
+                        ym = re.search(r"((?:19|20)\d{2})", digits_norm)
+                        if ym:
+                            rto_part = digits_norm[:ym.start()]
+                            y = int(ym.group(1))
+                            num_part = digits_norm[ym.end():]
+                            if 1 <= len(rto_part) <= 3 and 4 <= len(num_part) <= 8 and 1950 <= y <= 2035:
+                                rto_code = rto_part.zfill(2)
+                                year_val = y
+                                num_val = num_part
+                                normalized_dl = f"{state_code}-{rto_code}-{year_val}-{num_val}"
+
+            if not normalized_dl:
+                continue
+
+            method = f"Regex + State Code Validation ({state_name})"
+            if ocr_corrected:
+                method += " [OCR Normalized]"
+
+            findings.append(
+                RawFinding(
+                    verifier_name=self.name,
+                    category=self.category,
+                    severity=self.severity,
+                    is_algorithmic=False,
+                    raw_value=raw,
+                    start=match.start(),
+                    end=match.end(),
+                    masked_value=self.mask(raw, normalized_dl),
+                    validation_method=method,
+                    details={
+                        "state_code": state_code,
+                        "state_name": state_name,
+                        "rto_code": rto_code,
+                        "issue_year": year_val,
+                        "license_number": num_val,
+                        "normalized_dl": normalized_dl,
+                        "ocr_corrected": ocr_corrected,
+                    },
+                )
+            )
+        return findings
+
+    def mask(self, raw: str, normalized: Optional[str] = None) -> str:
+        clean = (normalized or raw).strip()
         state = clean[:2].upper()
-        return f"{state}-XX-****-{clean[-4:]}" if len(clean) >= 6 else f"{state}-******"
+        digits = [c for c in clean if c.isdigit()]
+        last4 = "".join(digits[-4:]) if len(digits) >= 4 else "XXXX"
+        return f"{state}-XX-****-{last4}"
 
 
 class PassportVerifier(BaseVerifier):

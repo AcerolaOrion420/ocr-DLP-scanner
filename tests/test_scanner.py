@@ -62,3 +62,42 @@ class TestDLPScanner:
         # Verify context snippet includes masking
         dl_finding = next(f for f in result.findings if f.verifier_name == "Driving License")
         assert "MH" in dl_finding.context_snippet
+
+    def test_scanned_dl_ocr_text(self):
+        user_ocr_text = """DL No.
+NAME
+D.O.B
+
+VALID TILL :
+
+: KAO4 20220017889 DOI : 13/09/2022
+
+: OMKAR R REDDY |
+
+: 02/10/2001 BG.: O+
+01/10/2041(NT)
+
+VALID THROUGHOUT INDIA
+cov : LMV 13/09/2022
+: MCWG  109/2022
+
+: RAMESHA REDDY N
+: #19 C N K Reddy Garden House Opp C N K
+
+FORM -7
+[See Rule 16(2))
+
+}-1000"""
+        result = self.scanner.scan(user_ocr_text)
+        assert result.findings_count == 1
+        finding = result.findings[0]
+        assert finding.verifier_name == "Driving License"
+        assert finding.raw_value == "KAO4 20220017889"
+        assert finding.details["state_code"] == "KA"
+        assert finding.details["state_name"] == "Karnataka"
+        assert finding.details["rto_code"] == "04"
+        assert finding.details["issue_year"] == 2022
+        assert finding.details["license_number"] == "0017889"
+        assert "KA-XX-****-7889" in result.redacted_text
+        assert "KAO4 20220017889" not in result.redacted_text
+        assert "dlp-leak-high" in result.highlighted_html

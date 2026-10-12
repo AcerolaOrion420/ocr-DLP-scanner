@@ -48,6 +48,14 @@ class TestAadhaarVerifier:
         matches = self.verifier.find_all(text)
         assert len(matches) == 0
 
+    def test_valid_aadhaar_ocr_confused(self):
+        # OCR read '0' as letter 'O'
+        text = "UID: 2345 6789 O124"
+        matches = self.verifier.find_all(text)
+        assert len(matches) == 1
+        assert matches[0].details["ocr_corrected"] is True
+        assert matches[0].masked_value == "XXXX-XXXX-0124"
+
 
 class TestCreditCardVerifier:
     def setup_method(self):
@@ -106,6 +114,14 @@ class TestPANVerifier:
         matches = self.verifier.find_all(text)
         assert len(matches) == 0
 
+    def test_valid_pan_ocr_confused(self):
+        # OCR read '0' as 'O' in digits
+        text = "KYC PAN: ABCPS12O4F"
+        matches = self.verifier.find_all(text)
+        assert len(matches) == 1
+        assert matches[0].details["ocr_corrected"] is True
+        assert matches[0].details["pan_uppercase"] == "ABCPS1204F"
+
 
 class TestDrivingLicenseVerifier:
     def setup_method(self):
@@ -125,6 +141,25 @@ class TestDrivingLicenseVerifier:
         matches = self.verifier.find_all(text)
         assert len(matches) == 1
         assert matches[0].details["state_code"] == "DL"
+
+    def test_ocr_confused_dl_karnataka(self):
+        # User scenario: OCR read '0' as letter 'O' in KAO4
+        text = ": KAO4 20220017889 DOI : 13/09/2022"
+        matches = self.verifier.find_all(text)
+        assert len(matches) == 1
+        assert matches[0].verifier_name == "Driving License"
+        assert matches[0].details["state_code"] == "KA"
+        assert matches[0].details["state_name"] == "Karnataka"
+        assert matches[0].details["rto_code"] == "04"
+        assert matches[0].details["issue_year"] == 2022
+        assert matches[0].details["license_number"] == "0017889"
+        assert matches[0].details["ocr_corrected"] is True
+        assert matches[0].masked_value == "KA-XX-****-7889"
+
+    def test_ocr_confused_dl_spacing_and_slashes(self):
+        text = "Licenses: KA 04 2022 0017889 and KA/04/2022/0017889"
+        matches = self.verifier.find_all(text)
+        assert len(matches) == 2
 
     def test_invalid_state_code(self):
         # ZZ is not an Indian state code
