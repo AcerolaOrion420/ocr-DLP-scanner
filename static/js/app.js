@@ -361,6 +361,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
             const iconMap = {
                 "Aadhaar Card": "🆔",
+                "Aadhaar Virtual ID (VID)": "🪪",
                 "PAN Card": "📋",
                 "Driving License": "🚗",
                 "Passport": "🛂",

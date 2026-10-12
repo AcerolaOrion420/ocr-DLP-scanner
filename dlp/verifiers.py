@@ -120,14 +120,17 @@ class AadhaarVerifier(BaseVerifier):
     is_algorithmic = True
 
     # Matches 12-digit numbers formatted as 4-4-4 or 12 consecutive digits
+    # Only matches horizontal whitespace/hyphens (never across newlines)
+    # Negative lookahead/lookbehind ensures 12 digits are not part of 16-digit VID or card numbers
     PATTERN = re.compile(
-        r"(?<![A-Za-z0-9])([2-9][0-9OolI]{3})[\s-]?([0-9OolI]{4})[\s-]?([0-9OolI]{4})(?![A-Za-z0-9])"
+        r"(?<![0-9OolI]{4}[ \t-])(?<![A-Za-z0-9])([2-9][0-9OolI]{3})[ \t-]?([0-9OolI]{4})[ \t-]?([0-9OolI]{4})(?![ \t-]?[0-9OolI]{4})(?![A-Za-z0-9])|"
+        r"(?<![0-9OolI])([2-9][0-9OolI]{11})(?![0-9OolI])"
     )
 
     def find_all(self, text: str) -> List[RawFinding]:
         findings = []
         for match in self.PATTERN.finditer(text):
-            raw = match.group(0)
+            raw = match.group(0).strip()
             raw_clean = "".join(ch for ch in raw if ch.isalnum())
             digits = raw_clean.translate(OCR_DIGIT_MAP)
 
@@ -172,6 +175,71 @@ class AadhaarVerifier(BaseVerifier):
         if len(digits) >= 12:
             return f"XXXX-XXXX-{digits[-4:]}"
         return "XXXX-XXXX-" + raw[-4:] if len(raw) >= 4 else "XXXX"
+
+
+class AadhaarVIDVerifier(BaseVerifier):
+    """
+    Aadhaar Virtual ID (VID) Verifier:
+    Format: 16 digits issued by UIDAI, formatted as 4-4-4-4 or 16 continuous digits.
+    Validation: Algorithmic Verhoeff checksum validated across all 16 digits.
+    OCR-tolerant: resolves O/o -> 0, I/l -> 1 before Verhoeff checksum.
+    """
+    name = "Aadhaar Virtual ID (VID)"
+    category = "National ID"
+    severity = "CRITICAL"
+    is_algorithmic = True
+
+    PATTERN = re.compile(
+        r"(?<![A-Za-z0-9])([0-9OolI]{4})[ \t-]?([0-9OolI]{4})[ \t-]?([0-9OolI]{4})[ \t-]?([0-9OolI]{4})(?![A-Za-z0-9])|"
+        r"(?<![0-9OolI])([0-9OolI]{16})(?![0-9OolI])"
+    )
+
+    def find_all(self, text: str) -> List[RawFinding]:
+        findings = []
+        for match in self.PATTERN.finditer(text):
+            raw = match.group(0).strip()
+            raw_clean = "".join(ch for ch in raw if ch.isalnum())
+            digits = raw_clean.translate(OCR_DIGIT_MAP)
+
+            if len(digits) != 16 or not digits.isdigit():
+                continue
+
+            if len(set(digits)) == 1:
+                continue
+
+            # Algorithmic Verhoeff check across all 16 digits
+            if verhoeff_validate(digits):
+                ocr_corrected = any(c in "OoIil|" for c in raw_clean)
+                method = "Algorithmic (Verhoeff Checksum Validated - 16-Digit UIDAI VID)"
+                if ocr_corrected:
+                    method += " [OCR Normalized]"
+
+                findings.append(
+                    RawFinding(
+                        verifier_name=self.name,
+                        category=self.category,
+                        severity=self.severity,
+                        is_algorithmic=True,
+                        raw_value=raw,
+                        start=match.start(),
+                        end=match.end(),
+                        masked_value=self.mask(raw, digits),
+                        validation_method=method,
+                        details={
+                            "formatted": f"{digits[:4]} {digits[4:8]} {digits[8:12]} {digits[12:]}",
+                            "algorithm": "Verhoeff Checksum (16-Digit VID)",
+                            "status": "Verified Genuine Aadhaar Virtual ID",
+                            "ocr_corrected": ocr_corrected,
+                        },
+                    )
+                )
+        return findings
+
+    def mask(self, raw: str, normalized_digits: Optional[str] = None) -> str:
+        digits = normalized_digits or "".join(ch for ch in raw if ch.isdigit())
+        if len(digits) >= 16:
+            return f"XXXX-XXXX-XXXX-{digits[-4:]}"
+        return "VID-XXXX-" + (digits[-4:] if len(digits) >= 4 else "XXXX")
 
 
 class CreditCardVerifier(BaseVerifier):
@@ -673,6 +741,7 @@ class IFSCVerifier(BaseVerifier):
 # Note: Algorithmic verifiers (Credit Card, Aadhaar) run first to resolve overlaps
 ALL_VERIFIERS = [
     CreditCardVerifier(),
+    AadhaarVIDVerifier(),
     AadhaarVerifier(),
     PANVerifier(),
     DrivingLicenseVerifier(),

@@ -6,6 +6,7 @@ Aadhaar, CreditCard, PAN, DrivingLicense, Passport, VoterID, Phone, Email, IFSC.
 import pytest
 from dlp.verifiers import (
     AadhaarVerifier,
+    AadhaarVIDVerifier,
     CreditCardVerifier,
     PANVerifier,
     DrivingLicenseVerifier,
@@ -55,6 +56,34 @@ class TestAadhaarVerifier:
         assert len(matches) == 1
         assert matches[0].details["ocr_corrected"] is True
         assert matches[0].masked_value == "XXXX-XXXX-0124"
+
+    def test_aadhaar_does_not_bridge_lines_in_vid(self):
+        # When 16-digit VIDs are on multiple lines, it should NOT match across \n
+        text = "VID : \n9197 9191 1925 4976\n9197 9191 1925 4976"
+        matches = self.verifier.find_all(text)
+        # Should not match 4976\n9197 9191
+        assert len(matches) == 0
+
+
+class TestAadhaarVIDVerifier:
+    def setup_method(self):
+        self.verifier = AadhaarVIDVerifier()
+
+    def test_valid_vid(self):
+        text = "VID : 9197 9191 1925 4976"
+        matches = self.verifier.find_all(text)
+        assert len(matches) == 1
+        assert matches[0].verifier_name == "Aadhaar Virtual ID (VID)"
+        assert matches[0].severity == "CRITICAL"
+        assert matches[0].is_algorithmic is True
+        assert matches[0].masked_value == "XXXX-XXXX-XXXX-4976"
+        assert matches[0].details["algorithm"] == "Verhoeff Checksum (16-Digit VID)"
+
+    def test_invalid_vid_checksum(self):
+        # Mutated last digit
+        text = "VID : 9197 9191 1925 4977"
+        matches = self.verifier.find_all(text)
+        assert len(matches) == 0
 
 
 class TestCreditCardVerifier:

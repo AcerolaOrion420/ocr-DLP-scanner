@@ -101,3 +101,24 @@ FORM -7
         assert "KA-XX-****-7889" in result.redacted_text
         assert "KAO4 20220017889" not in result.redacted_text
         assert "dlp-leak-high" in result.highlighted_html
+
+    def test_scanned_eaadhaar_with_vid(self):
+        text = """Omkar R Reddy
+8618348660
+9591 6294 0304
+VID : 
+VID : 
+9197 9191 1925 4976
+9197 9191 1925 4976"""
+        result = self.scanner.scan(text)
+        verifier_names = [f.verifier_name for f in result.findings]
+        # Must detect phone, Aadhaar, and VID
+        assert "Phone Number" in verifier_names
+        assert "Aadhaar Card" in verifier_names
+        assert "Aadhaar Virtual ID (VID)" in verifier_names
+
+        # Must NOT flag phantom line-bridging finding '4976\n9197 9191'
+        raw_values = [f.raw_value for f in result.findings]
+        assert not any("\n" in val for val in raw_values)
+        assert "9591 6294 0304" in raw_values
+        assert "9197 9191 1925 4976" in raw_values

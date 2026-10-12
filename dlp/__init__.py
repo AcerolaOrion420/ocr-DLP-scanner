@@ -6,6 +6,7 @@ Provides OCR, document parsing, PII regex detection, and algorithmic validation.
 from dlp.algorithms import verhoeff_validate, luhn_validate
 from dlp.verifiers import (
     AadhaarVerifier,
+    AadhaarVIDVerifier,
     CreditCardVerifier,
     PANVerifier,
     DrivingLicenseVerifier,
@@ -23,6 +24,7 @@ __all__ = [
     "verhoeff_validate",
     "luhn_validate",
     "AadhaarVerifier",
+    "AadhaarVIDVerifier",
     "CreditCardVerifier",
     "PANVerifier",
     "DrivingLicenseVerifier",
